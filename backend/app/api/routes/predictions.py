@@ -51,33 +51,39 @@ async def predict_single(file: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/batch", response_model=BatchPredictionResponse)
-async def predict_batch(files: list = File(...)):
+async def predict_batch(files: list[UploadFile] = File(...)):
     """Predict talent for multiple audio files"""
     results = []
     successful = 0
     failed = 0
+    total_files = len(files)
     
     if not model_manager.model_loaded:
         model_manager.load_model()
     
+    if not model_manager.is_model_ready():
+        raise HTTPException(status_code=503, detail="Model not available")
+    
     for file in files:
+        tmp_path = None
         try:
+            # Create temporary file
             with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp:
                 content = await file.read()
                 tmp.write(content)
                 tmp_path = tmp.name
             
+            # Validate audio file
             is_valid, msg = validate_audio_file(tmp_path)
             if not is_valid:
                 failed += 1
-                os.unlink(tmp_path)
                 continue
             
+            # Make prediction
             result = model_manager.predict(tmp_path)
-            os.unlink(tmp_path)
             
             results.append(PredictionResult(
-                filename=file.filename,
+                filename=file.filename or "unknown",
                 label=result['label'],
                 confidence=result['confidence'],
                 probability_good=result['probability_good'],
@@ -87,9 +93,13 @@ async def predict_batch(files: list = File(...)):
             successful += 1
         except Exception as e:
             failed += 1
+        finally:
+            # Clean up temporary file
+            if tmp_path and os.path.exists(tmp_path):
+                os.unlink(tmp_path)
     
     return BatchPredictionResponse(
-        total=len(files),
+        total=total_files,
         successful=successful,
         failed=failed,
         results=results,
