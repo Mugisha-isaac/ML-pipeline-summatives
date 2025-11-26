@@ -47,22 +47,23 @@ venv.bak/
 *.wav
 *.mp3
 *.flac
-data/train/
-data/test/
+# data/train/ and data/test/ are needed for deployment - kept in repo
+# data/train/ 
+# data/test/
 
-# Model files (large files)
-*.h5
-*.pkl
-*.model
-*.pt
-*.pth
+# Model files (large files) - KEPT IN REPO FOR DEPLOYMENT
+# *.h5
+# *.pkl
+# *.model
+# *.pt
+# *.pth
 
 # Output files
 output/
 results/
 visualizations/
 logs/
-*.csv
+# *.csv  # Keep CSVs in repo for model and features
 !requirements.txt
 
 # Environment variables
