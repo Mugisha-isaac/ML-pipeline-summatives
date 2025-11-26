@@ -10,14 +10,13 @@ from typing import Dict
 
 from app.schemas.requests import RetrainingRequest
 from app.schemas.responses import TrainingResponse, TrainingStatus, DataUploadResponse, ModelMetrics
-from app.utils.model import ModelManager
 from app.utils.files import validate_audio_file, save_upload_file
 from app.utils.audio import FeatureExtractor, AudioPreprocessor
 from app.models_ml.trainer import ModelTrainer
 from app.config.settings import UPLOAD_DIR, RETRAIN_MIN_SAMPLES
+from app.main import model_manager
 
 router = APIRouter(prefix="/api/v1", tags=["Training"])
-model_manager = ModelManager()
 
 # Global training status
 training_status: Dict = {"status": "idle", "progress": 0, "message": None}

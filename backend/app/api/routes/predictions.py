@@ -7,11 +7,10 @@ from datetime import datetime
 
 from app.schemas.requests import PredictionRequest, BatchPredictionRequest
 from app.schemas.responses import PredictionResult, BatchPredictionResponse
-from app.utils.model import ModelManager
 from app.utils.files import validate_audio_file
+from app.main import model_manager
 
 router = APIRouter(prefix="/api/v1/predictions", tags=["Predictions"])
-model_manager = ModelManager()
 
 @router.post("/single", response_model=PredictionResult)
 async def predict_single(file: UploadFile = File(...)):

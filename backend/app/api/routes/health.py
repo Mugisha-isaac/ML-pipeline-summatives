@@ -3,11 +3,10 @@ from fastapi import APIRouter
 from datetime import datetime
 
 from app.schemas.responses import HealthStatus, ModelInfo
-from app.utils.model import ModelManager
 from app.config.settings import API_VERSION
+from app.main import model_manager
 
 router = APIRouter(prefix="/api/v1", tags=["Health"])
-model_manager = ModelManager()
 
 @router.get("/health", response_model=HealthStatus)
 async def health_check():
