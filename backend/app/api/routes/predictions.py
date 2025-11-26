@@ -15,6 +15,7 @@ router = APIRouter(prefix="/api/v1/predictions", tags=["Predictions"])
 @router.post("/single", response_model=PredictionResult)
 async def predict_single(file: UploadFile = File(...)):
     """Predict talent for a single audio file"""
+    tmp_path = None
     try:
         print(f"Received file: {file.filename}")
         # Create temporary file
@@ -28,7 +29,6 @@ async def predict_single(file: UploadFile = File(...)):
         # Validate
         is_valid, msg = validate_audio_file(tmp_path)
         if not is_valid:
-            os.unlink(tmp_path)
             print(f"Validation failed: {msg}")
             raise HTTPException(status_code=400, detail=msg)
         
@@ -45,7 +45,6 @@ async def predict_single(file: UploadFile = File(...)):
         
         print("Making prediction...")
         result = model_manager.predict(tmp_path)
-        os.unlink(tmp_path)
         
         print(f"Prediction result: {result}")
         
@@ -57,11 +56,20 @@ async def predict_single(file: UploadFile = File(...)):
             probability_bad=result['probability_bad'],
             timestamp=datetime.utcnow()
         )
+    except HTTPException:
+        raise
     except Exception as e:
         print(f"Error in predict_single: {e}")
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        # Ensure temp file is cleaned up
+        if tmp_path and os.path.exists(tmp_path):
+            try:
+                os.unlink(tmp_path)
+            except:
+                pass
 
 @router.post("/batch", response_model=BatchPredictionResponse)
 async def predict_batch(files: list[UploadFile] = File(...)):

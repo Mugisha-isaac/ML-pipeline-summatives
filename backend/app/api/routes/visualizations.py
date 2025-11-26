@@ -18,6 +18,7 @@ router = APIRouter(prefix="/api/v1", tags=["Visualizations"])
 @router.get("/visualizations/mfcc")
 async def get_mfcc_visualization():
     """Get MFCC feature distribution visualization"""
+    tmp_path = None
     try:
         # Create sample visualization
         fig, ax = plt.subplots(figsize=(10, 6))
@@ -29,15 +30,23 @@ async def get_mfcc_visualization():
         
         # Save to temporary file
         with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmp:
+            tmp_path = tmp.name
             plt.savefig(tmp.name, dpi=150, bbox_inches='tight')
             plt.close()
-            return FileResponse(tmp.name, media_type="image/png")
+        
+        return FileResponse(tmp_path, media_type="image/png")
     except Exception as e:
+        if tmp_path and os.path.exists(tmp_path):
+            try:
+                os.unlink(tmp_path)
+            except:
+                pass
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/visualizations/spectral")
 async def get_spectral_visualization():
     """Get spectral features distribution"""
+    tmp_path = None
     try:
         fig, ax = plt.subplots(figsize=(10, 6))
         features = ['Spectral Centroid', 'Spectral Rolloff', 'ZCR', 'RMS']
@@ -47,10 +56,17 @@ async def get_spectral_visualization():
         ax.set_title('Spectral Features Distribution')
         
         with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmp:
+            tmp_path = tmp.name
             plt.savefig(tmp.name, dpi=150, bbox_inches='tight')
             plt.close()
-            return FileResponse(tmp.name, media_type="image/png")
+        
+        return FileResponse(tmp_path, media_type="image/png")
     except Exception as e:
+        if tmp_path and os.path.exists(tmp_path):
+            try:
+                os.unlink(tmp_path)
+            except:
+                pass
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/visualizations/feature-info")

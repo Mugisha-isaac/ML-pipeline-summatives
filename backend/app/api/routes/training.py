@@ -18,8 +18,8 @@ from app.core.model_instance import model_manager
 
 router = APIRouter(prefix="/api/v1", tags=["Training"])
 
-# Global training status
-training_status: Dict = {"status": "idle", "progress": 0, "message": None}
+# Track training status per training_id
+training_jobs: Dict[str, Dict] = {}
 
 @router.post("/upload-data", response_model=DataUploadResponse)
 async def upload_training_data(files: list = File(...)):
@@ -76,6 +76,13 @@ async def trigger_retraining(request: RetrainingRequest, background_tasks: Backg
             detail=f"Need at least {RETRAIN_MIN_SAMPLES} samples, found {len(audio_files)}"
         )
     
+    # Initialize training status for this job
+    training_jobs[training_id] = {
+        "status": "started",
+        "progress": 0,
+        "message": f"Retraining started with {len(audio_files)} samples"
+    }
+    
     # Start training in background
     background_tasks.add_task(
         _retrain_model,
@@ -94,9 +101,10 @@ async def trigger_retraining(request: RetrainingRequest, background_tasks: Backg
 
 async def _retrain_model(audio_files, epochs, batch_size, training_id):
     """Background task for model retraining"""
-    global training_status
     try:
-        training_status = {"status": "training", "progress": 10, "message": "Extracting features"}
+        training_jobs[training_id]["status"] = "training"
+        training_jobs[training_id]["progress"] = 10
+        training_jobs[training_id]["message"] = "Extracting features"
         
         # Extract features
         preprocessor = AudioPreprocessor()
@@ -115,62 +123,78 @@ async def _retrain_model(audio_files, epochs, batch_size, training_id):
                 features_list.append(features_flat)
                 
                 progress = 10 + int((idx / len(audio_files)) * 40)
-                training_status["progress"] = progress
+                training_jobs[training_id]["progress"] = progress
             except Exception as e:
                 print(f"Error processing {audio_file}: {e}")
         
         if not features_list:
-            training_status = {"status": "failed", "progress": 0, "message": "No valid features extracted"}
+            training_jobs[training_id]["status"] = "failed"
+            training_jobs[training_id]["message"] = "No valid features extracted"
             return
         
         # Train model
         df = pd.DataFrame(features_list)
         trainer = ModelTrainer()
         
-        training_status["message"] = "Building model"
+        training_jobs[training_id]["message"] = "Building model"
         feature_count = trainer.get_feature_count(df)
         trainer.build_model(feature_count)
         
-        training_status["message"] = "Preparing data"
-        training_status["progress"] = 60
+        training_jobs[training_id]["message"] = "Preparing data"
+        training_jobs[training_id]["progress"] = 60
         X_train, X_test, y_train, y_test = trainer.prepare_data(df)
         
-        training_status["message"] = "Training model"
-        training_status["progress"] = 70
+        training_jobs[training_id]["message"] = "Training model"
+        training_jobs[training_id]["progress"] = 70
         trainer.train(X_train, y_train, X_test, y_test, epochs=epochs, batch_size=batch_size)
         
-        training_status["message"] = "Evaluating model"
-        training_status["progress"] = 90
+        training_jobs[training_id]["message"] = "Evaluating model"
+        training_jobs[training_id]["progress"] = 90
         metrics = trainer.evaluate(X_test, y_test)
         
         # Save model
         model_manager.model = trainer.model
         model_manager.scaler = trainer.scaler
         model_manager.label_encoder = trainer.label_encoder
+        model_manager.model_loaded = True
         model_manager.save_model()
         
-        training_status = {
-            "status": "completed",
-            "progress": 100,
-            "message": f"Training completed. Accuracy: {metrics['accuracy']:.4f}"
-        }
+        training_jobs[training_id]["status"] = "completed"
+        training_jobs[training_id]["progress"] = 100
+        training_jobs[training_id]["message"] = f"Training completed. Accuracy: {metrics['accuracy']:.4f}"
     except Exception as e:
-        training_status = {"status": "failed", "progress": 0, "message": str(e)}
+        print(f"Training error for {training_id}: {e}")
+        import traceback
+        traceback.print_exc()
+        training_jobs[training_id]["status"] = "failed"
+        training_jobs[training_id]["progress"] = 0
+        training_jobs[training_id]["message"] = str(e)
 
-@router.get("/train-status", response_model=TrainingStatus)
-async def get_training_status():
-    """Get training status"""
+@router.get("/train-status/{training_id}", response_model=TrainingStatus)
+async def get_training_status(training_id: str):
+    """Get training status for a specific training job"""
+    if training_id not in training_jobs:
+        raise HTTPException(status_code=404, detail=f"Training job {training_id} not found")
+    
+    job = training_jobs[training_id]
     return TrainingStatus(
-        status=training_status.get("status", "idle"),
-        progress=training_status.get("progress", 0),
-        message=training_status.get("message", None),
+        status=job.get("status", "idle"),
+        progress=job.get("progress", 0),
+        message=job.get("message", None),
         timestamp=datetime.utcnow()
     )
 
 @router.get("/model-metrics", response_model=ModelMetrics)
 async def get_model_metrics():
     """Get model performance metrics"""
-    trainer = ModelTrainer()
-    if trainer.last_metrics:
-        return ModelMetrics(**trainer.last_metrics)
-    raise HTTPException(status_code=404, detail="No metrics available yet")
+    if not model_manager.model_loaded:
+        raise HTTPException(status_code=503, detail="Model not loaded yet")
+    
+    # Return zero metrics if model just loaded without training info
+    return ModelMetrics(
+        accuracy=None,
+        precision=None,
+        recall=None,
+        f1_score=None,
+        confusion_matrix=None
+    )
