@@ -77,6 +77,91 @@ export default function PredictPage() {
     }
   }
 
+  const closeModal = () => {
+    setResult(null)
+  }
+
+  const renderResultModal = () => {
+    if (!result || Array.isArray(result)) return null
+
+    const isGood = result.label === 'good'
+    const confidence = (result.confidence * 100).toFixed(2)
+    
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className={`bg-white rounded-lg shadow-xl max-w-md w-full overflow-hidden`}>
+          {/* Header */}
+          <div className={`${isGood ? 'bg-green-600' : 'bg-red-600'} px-6 py-8 text-center`}>
+            <div className="text-5xl font-bold text-white mb-2">
+              {isGood ? 'QUALIFIED' : 'REJECTED'}
+            </div>
+            <p className="text-white text-sm opacity-90">
+              {isGood ? 'Singer Talent Assessment' : 'Assessment Result'}
+            </p>
+          </div>
+
+          {/* Content */}
+          <div className="px-6 py-8">
+            <div className="text-center mb-6">
+              <p className="text-gray-600 text-sm mb-2">Prediction Result</p>
+              <p className="text-2xl font-bold text-gray-800 capitalize">
+                {result.label}
+              </p>
+            </div>
+
+            {/* Confidence Score */}
+            <div className="mb-6">
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-gray-600 font-medium">Confidence</span>
+                <span className="text-lg font-bold text-gray-800">{confidence}%</span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-2">
+                <div
+                  className={`h-2 rounded-full ${isGood ? 'bg-green-600' : 'bg-red-600'}`}
+                  style={{ width: `${confidence}%` }}
+                ></div>
+              </div>
+            </div>
+
+            {/* Probability Breakdown */}
+            <div className="bg-gray-50 rounded-lg p-4 mb-6 space-y-3">
+              <div className="flex justify-between items-center">
+                <span className="text-gray-600 text-sm">Probability Good</span>
+                <span className="font-mono font-semibold text-gray-800">
+                  {(result.probability_good * 100).toFixed(4)}%
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-gray-600 text-sm">Probability Bad</span>
+                <span className="font-mono font-semibold text-gray-800">
+                  {(result.probability_bad * 100).toFixed(4)}%
+                </span>
+              </div>
+            </div>
+
+            {/* File Info */}
+            <div className="bg-gray-50 rounded-lg p-4 mb-6">
+              <p className="text-gray-600 text-sm mb-1">File</p>
+              <p className="text-gray-800 font-semibold truncate">{result.filename}</p>
+            </div>
+
+            {/* Close Button */}
+            <button
+              onClick={closeModal}
+              className={`w-full py-3 rounded-lg font-semibold text-white transition ${
+                isGood
+                  ? 'bg-green-600 hover:bg-green-700'
+                  : 'bg-red-600 hover:bg-red-700'
+              }`}
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <main className="min-h-screen bg-gradient-to-b from-slate-900 to-slate-800">
       <div className="container mx-auto px-4 py-20">
@@ -124,12 +209,14 @@ export default function PredictPage() {
                 accept="audio/*"
                 multiple
                 onChange={handleFileChange}
+                disabled={loading}
                 className="block w-full text-sm text-slate-300
                   file:mr-4 file:py-2 file:px-4
                   file:rounded-md file:border-0
                   file:text-sm file:font-semibold
                   file:bg-blue-600 file:text-white
-                  hover:file:bg-blue-700"
+                  hover:file:bg-blue-700
+                  disabled:opacity-50 disabled:cursor-not-allowed"
               />
               {files.length > 0 && (
                 <div className="text-slate-300 mt-4 bg-slate-800 p-4 rounded-md">
@@ -143,7 +230,8 @@ export default function PredictPage() {
                     <button
                       type="button"
                       onClick={() => setFiles([])}
-                      className="text-sm text-red-400 hover:text-red-300"
+                      disabled={loading}
+                      className="text-sm text-red-400 hover:text-red-300 disabled:opacity-50"
                     >
                       Clear All
                     </button>
@@ -151,11 +239,12 @@ export default function PredictPage() {
                   <ul className="mt-3 space-y-2 max-h-48 overflow-y-auto">
                     {files.map((f, i) => (
                       <li key={i} className="flex justify-between items-center text-sm text-slate-300 bg-slate-700 p-2 rounded">
-                        <span>• {f.name}</span>
+                        <span>* {f.name}</span>
                         <button
                           type="button"
                           onClick={() => setFiles(files.filter((_, idx) => idx !== i))}
-                          className="text-red-400 hover:text-red-300 text-xs"
+                          disabled={loading}
+                          className="text-red-400 hover:text-red-300 text-xs disabled:opacity-50"
                         >
                           Remove
                         </button>
@@ -182,31 +271,57 @@ export default function PredictPage() {
             </button>
           </form>
 
-          {result && (
-            <div className="mt-8 bg-green-900 rounded-lg p-8">
-              <h2 className="text-2xl font-bold text-green-200 mb-4">
-                Result{Array.isArray(result) ? 's' : ''}
-              </h2>
-              {Array.isArray(result) ? (
-                <div className="space-y-4">
-                  {result.map((item: any, index: number) => (
-                    <div key={index} className="bg-slate-800 p-4 rounded">
-                      <p className="text-green-300 font-semibold mb-2">File {index + 1}</p>
-                      <pre className="text-green-100 overflow-auto text-sm">
-                        {JSON.stringify(item, null, 2)}
-                      </pre>
+          {/* Loading Spinner */}
+          {loading && (
+            <div className="mt-8 flex justify-center">
+              <div className="flex flex-col items-center">
+                <div className="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mb-4"></div>
+                <p className="text-white text-lg font-semibold">Processing prediction...</p>
+                <p className="text-slate-300 text-sm mt-2">Please wait while we analyze the audio file</p>
+              </div>
+            </div>
+          )}
+
+          {/* Batch Results */}
+          {result && Array.isArray(result) && (
+            <div className="mt-8 bg-blue-900 rounded-lg p-8">
+              <h2 className="text-2xl font-bold text-blue-200 mb-6">Batch Results</h2>
+              <div className="space-y-4">
+                {result.map((item: any, index: number) => (
+                  <div 
+                    key={index} 
+                    className={`rounded-lg p-4 ${
+                      item.label === 'good' 
+                        ? 'bg-green-900 border-l-4 border-green-500' 
+                        : 'bg-red-900 border-l-4 border-red-500'
+                    }`}
+                  >
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <p className="font-semibold text-white mb-1">File {index + 1}</p>
+                        <p className="text-slate-300 text-sm truncate">{item.filename}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className={`font-bold text-lg capitalize ${
+                          item.label === 'good' ? 'text-green-300' : 'text-red-300'
+                        }`}>
+                          {item.label === 'good' ? 'QUALIFIED' : 'REJECTED'}
+                        </p>
+                        <p className="text-slate-300 text-xs">
+                          {(item.confidence * 100).toFixed(1)}% confidence
+                        </p>
+                      </div>
                     </div>
-                  ))}
-                </div>
-              ) : (
-                <pre className="text-green-100 overflow-auto bg-slate-800 p-4 rounded">
-                  {JSON.stringify(result, null, 2)}
-                </pre>
-              )}
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>
       </div>
+
+      {/* Result Modal */}
+      {renderResultModal()}
     </main>
   )
 }
