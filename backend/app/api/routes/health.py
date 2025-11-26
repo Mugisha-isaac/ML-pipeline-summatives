@@ -4,7 +4,7 @@ from datetime import datetime
 
 from app.schemas.responses import HealthStatus, ModelInfo
 from app.config.settings import API_VERSION
-from app.main import model_manager
+from app.core.model_instance import model_manager
 
 router = APIRouter(prefix="/api/v1", tags=["Health"])
 

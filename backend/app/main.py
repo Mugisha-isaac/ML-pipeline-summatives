@@ -6,10 +6,7 @@ from contextlib import asynccontextmanager
 
 from app.config.settings import API_TITLE, API_VERSION, API_DESCRIPTION
 from app.api.routes import api_router
-from app.utils.model import ModelManager
-
-# Global model manager
-model_manager = ModelManager()
+from app.core.model_instance import model_manager
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):

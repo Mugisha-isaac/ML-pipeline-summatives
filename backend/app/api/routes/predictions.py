@@ -8,7 +8,7 @@ from datetime import datetime
 from app.schemas.requests import PredictionRequest, BatchPredictionRequest
 from app.schemas.responses import PredictionResult, BatchPredictionResponse
 from app.utils.files import validate_audio_file
-from app.main import model_manager
+from app.core.model_instance import model_manager
 
 router = APIRouter(prefix="/api/v1/predictions", tags=["Predictions"])
 

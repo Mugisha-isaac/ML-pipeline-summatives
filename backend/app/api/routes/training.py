@@ -14,7 +14,7 @@ from app.utils.files import validate_audio_file, save_upload_file
 from app.utils.audio import FeatureExtractor, AudioPreprocessor
 from app.models_ml.trainer import ModelTrainer
 from app.config.settings import UPLOAD_DIR, RETRAIN_MIN_SAMPLES
-from app.main import model_manager
+from app.core.model_instance import model_manager
 
 router = APIRouter(prefix="/api/v1", tags=["Training"])
 
