@@ -20,20 +20,50 @@ class ModelManager:
 
     def load_model(self) -> bool:
         try:
+            print(f"[LOAD_MODEL] BASE_DIR: {MODEL_PATH.parent.parent}")
+            print(f"[LOAD_MODEL] MODELS_DIR: {MODEL_PATH.parent}")
+            print(f"[LOAD_MODEL] MODEL_PATH: {MODEL_PATH}")
+            print(f"[LOAD_MODEL] SCALER_PATH: {SCALER_PATH}")
+            print(f"[LOAD_MODEL] LABEL_ENCODER_PATH: {LABEL_ENCODER_PATH}")
+            
+            print(f"[LOAD_MODEL] Checking if model file exists: {os.path.exists(str(MODEL_PATH))}")
+            print(f"[LOAD_MODEL] Checking if scaler file exists: {os.path.exists(str(SCALER_PATH))}")
+            print(f"[LOAD_MODEL] Checking if encoder file exists: {os.path.exists(str(LABEL_ENCODER_PATH))}")
+            
             if os.path.exists(str(MODEL_PATH)):
+                print(f"[LOAD_MODEL] Loading model from {MODEL_PATH}")
                 self.model = keras.models.load_model(str(MODEL_PATH))
+                print(f"[LOAD_MODEL] Model loaded successfully")
+            else:
+                print(f"[LOAD_MODEL] Model file not found at {MODEL_PATH}")
+                
             if os.path.exists(str(SCALER_PATH)):
+                print(f"[LOAD_MODEL] Loading scaler from {SCALER_PATH}")
                 with open(str(SCALER_PATH), 'rb') as f:
                     self.scaler = pickle.load(f)
+                print(f"[LOAD_MODEL] Scaler loaded successfully")
+            else:
+                print(f"[LOAD_MODEL] Scaler file not found at {SCALER_PATH}")
+                
             if os.path.exists(str(LABEL_ENCODER_PATH)):
+                print(f"[LOAD_MODEL] Loading label encoder from {LABEL_ENCODER_PATH}")
                 with open(str(LABEL_ENCODER_PATH), 'rb') as f:
                     self.label_encoder = pickle.load(f)
+                print(f"[LOAD_MODEL] Label encoder loaded successfully")
+            else:
+                print(f"[LOAD_MODEL] Label encoder file not found at {LABEL_ENCODER_PATH}")
+                
             if self.model and self.scaler and self.label_encoder:
                 self.model_loaded = True
+                print(f"[LOAD_MODEL] All components loaded. model_loaded set to True")
                 return True
-            return False
+            else:
+                print(f"[LOAD_MODEL] Some components missing: model={self.model is not None}, scaler={self.scaler is not None}, encoder={self.label_encoder is not None}")
+                return False
         except Exception as e:
-            print(f"Error loading model: {e}")
+            print(f"[LOAD_MODEL] Error loading model: {e}")
+            import traceback
+            traceback.print_exc()
             return False
 
     def save_model(self) -> bool:
