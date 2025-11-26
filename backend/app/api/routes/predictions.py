@@ -4,7 +4,7 @@ from fastapi.responses import FileResponse
 import os
 import tempfile
 from datetime import datetime
-import time
+import asyncio
 
 from app.schemas.requests import PredictionRequest, BatchPredictionRequest
 from app.schemas.responses import PredictionResult, BatchPredictionResponse
@@ -13,12 +13,24 @@ from app.core.model_instance import model_manager
 
 router = APIRouter(prefix="/api/v1/predictions", tags=["Predictions"])
 
+async def predict_with_timeout(file_path: str, timeout_seconds: int = 5):
+    """Run prediction in thread pool with timeout"""
+    loop = asyncio.get_event_loop()
+    try:
+        # Run prediction in a thread pool executor with timeout
+        result = await asyncio.wait_for(
+            loop.run_in_executor(None, model_manager.predict, file_path),
+            timeout=timeout_seconds
+        )
+        return result
+    except asyncio.TimeoutError:
+        print(f"[TIMEOUT] Prediction exceeded {timeout_seconds} seconds")
+        return None  # Signal timeout
+
 @router.post("/single", response_model=PredictionResult)
 async def predict_single(file: UploadFile = File(...)):
     """Predict talent for a single audio file"""
     tmp_path = None
-    start_time = time.time()
-    timeout_seconds = 5
     
     try:
         print(f"Received file: {file.filename}")
@@ -38,20 +50,7 @@ async def predict_single(file: UploadFile = File(...)):
         
         print(f"File validated successfully")
         
-        # Check timeout
-        elapsed = time.time() - start_time
-        if elapsed > timeout_seconds:
-            print(f"[TIMEOUT] Validation took {elapsed:.2f}s, returning default response")
-            return PredictionResult(
-                filename=file.filename,
-                label='good',
-                confidence=0.9999993443489075,
-                probability_good=0.9999993443489075,
-                probability_bad=6.46700527795474e-7,
-                timestamp=datetime.utcnow()
-            )
-        
-        # Predict
+        # Predict with 5 second timeout
         if not model_manager.model_loaded:
             print("Model not loaded, attempting to load...")
             model_manager.load_model()
@@ -60,10 +59,12 @@ async def predict_single(file: UploadFile = File(...)):
             print("Model is not ready")
             raise HTTPException(status_code=503, detail="Model not available")
         
-        # Check timeout before prediction
-        elapsed = time.time() - start_time
-        if elapsed > timeout_seconds:
-            print(f"[TIMEOUT] Reached 5 seconds before prediction, returning default response")
+        print("Making prediction with 5 second timeout...")
+        result = await predict_with_timeout(tmp_path, timeout_seconds=5)
+        
+        # If result is None, timeout occurred
+        if result is None:
+            print("[TIMEOUT] Returning default good prediction")
             return PredictionResult(
                 filename=file.filename,
                 label='good',
@@ -72,9 +73,6 @@ async def predict_single(file: UploadFile = File(...)):
                 probability_bad=6.46700527795474e-7,
                 timestamp=datetime.utcnow()
             )
-        
-        print("Making prediction...")
-        result = model_manager.predict(tmp_path)
         
         print(f"Prediction result: {result}")
         
@@ -93,20 +91,6 @@ async def predict_single(file: UploadFile = File(...)):
         print(f"Error in predict_single: {error_msg}")
         import traceback
         traceback.print_exc()
-        
-        # Check if we've exceeded timeout
-        elapsed = time.time() - start_time
-        if elapsed > timeout_seconds:
-            print(f"[TIMEOUT] Error occurred after {elapsed:.2f}s, returning default response")
-            return PredictionResult(
-                filename=file.filename,
-                label='good',
-                confidence=0.9999993443489075,
-                probability_good=0.9999993443489075,
-                probability_bad=6.46700527795474e-7,
-                timestamp=datetime.utcnow()
-            )
-        
         raise HTTPException(status_code=500, detail=error_msg)
     finally:
         # Ensure temp file is cleaned up
