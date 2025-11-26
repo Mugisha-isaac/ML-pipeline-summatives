@@ -19,15 +19,11 @@ COPY requirements.txt .
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application code
+# Copy application code and all data/models
 COPY . .
 
-# Copy model files (these are critical for the app to work)
-COPY models/ /app/models/
-COPY data/ /app/data/
-
-# Create necessary directories
-RUN mkdir -p /app/models /app/data /app/data/train /app/data/test /app/logs
+# Create necessary directories for runtime operations
+RUN mkdir -p /app/data/uploads /app/logs
 
 # Expose port
 EXPOSE 8000
