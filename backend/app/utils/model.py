@@ -5,29 +5,9 @@ import numpy as np
 from pathlib import Path
 from typing import Dict, Any
 from tensorflow import keras
-import signal
-from contextlib import contextmanager
 
 from app.config.settings import MODEL_PATH, SCALER_PATH, LABEL_ENCODER_PATH, SAMPLE_RATE, N_MFCC
 from app.utils.audio import AudioPreprocessor, FeatureExtractor
-
-class TimeoutException(Exception):
-    pass
-
-@contextmanager
-def timeout(seconds):
-    """Context manager for timeout handling"""
-    def signal_handler(signum, frame):
-        raise TimeoutException(f"Operation timed out after {seconds} seconds")
-    
-    # Set the signal handler and alarm
-    signal.signal(signal.SIGALRM, signal_handler)
-    signal.alarm(seconds)
-    try:
-        yield
-    finally:
-        # Disable the alarm
-        signal.alarm(0)
 
 class ModelManager:
     def __init__(self):
@@ -106,85 +86,65 @@ class ModelManager:
         if not self.model_loaded:
             raise RuntimeError("Model not loaded")
         try:
-            # Wrap prediction in timeout handler (5 seconds max)
-            try:
-                with timeout(5):
-                    audio, sr = self.preprocessor.load_audio_file(file_path)
-                    print(f"[PREDICT] Audio loaded: shape={audio.shape}")
-                    
-                    audio_clean = self.preprocessor.remove_silence(audio)
-                    print(f"[PREDICT] After silence removal: shape={audio_clean.shape}")
-                    
-                    features = self.feature_extractor.extract_features(audio_clean)
-                    print(f"[PREDICT] Features extracted: {len(features)} feature keys")
-                    
-                    features_flat = self.feature_extractor.flatten_features(features)
-                    print(f"[PREDICT] Features flattened: {len(features_flat)} total features")
-                    
-                    # Create feature array in the EXACT order as CSV columns
-                    # Expected order: mfcc_mean_0-12, mfcc_std_0-12, spectral_centroid_mean, 
-                    # spectral_centroid_std, spectral_rolloff_mean, spectral_rolloff_std, 
-                    # zcr_mean, zcr_std, rms_mean, rms_std, chroma_mean, chroma_std, tempo_0
-                    feature_order = []
-                    for i in range(13):
-                        feature_order.append(f"mfcc_mean_{i}")
-                    for i in range(13):
-                        feature_order.append(f"mfcc_std_{i}")
-                    feature_order.extend([
-                        "spectral_centroid_mean", "spectral_centroid_std",
-                        "spectral_rolloff_mean", "spectral_rolloff_std",
-                        "zcr_mean", "zcr_std",
-                        "rms_mean", "rms_std",
-                        "chroma_mean", "chroma_std",
-                        "tempo_0"
-                    ])
-                    
-                    feature_values = []
-                    for fname in feature_order:
-                        if fname in features_flat:
-                            feature_values.append(features_flat[fname])
-                        else:
-                            print(f"[PREDICT] WARNING: Missing feature {fname}")
-                            feature_values.append(0.0)  # Default to 0 if missing
-                    
-                    feature_array = np.array([feature_values])
-                    print(f"[PREDICT] Feature array shape: {feature_array.shape} (expected: (1, 37))")
-                    
-                    if feature_array.shape[1] != 37:
-                        raise ValueError(f"Feature dimension mismatch: expected 37, got {feature_array.shape[1]}")
-                    
-                    features_scaled = self.scaler.transform(feature_array)
-                    print(f"[PREDICT] Scaled features shape: {features_scaled.shape}")
-                    
-                    prediction_prob = self.model.predict(features_scaled, verbose=0)[0][0]
-                    print(f"[PREDICT] Prediction probability: {prediction_prob}")
-                    
-                    prediction_class = int(prediction_prob > 0.5)
-                    predicted_label = self.label_encoder.inverse_transform([prediction_class])[0]
-                    print(f"[PREDICT] Predicted label: {predicted_label}")
-                    
-                    return {
-                        'label': predicted_label,
-                        'confidence': float(prediction_prob if prediction_class == 1 else 1 - prediction_prob),
-                        'probability_good': float(prediction_prob),
-                        'probability_bad': float(1 - prediction_prob)
-                    }
-            except TimeoutException as te:
-                print(f"[PREDICT] TIMEOUT: {str(te)} - Returning default result (GOOD)")
-                # Return default "good" prediction on timeout (flipped probabilities)
-                return {
-                    'label': 'good',
-                    'confidence': 0.9999993443489075,
-                    'probability_good': 0.9999993443489075,
-                    'probability_bad': 6.46700527795474e-7
-                }
-        except TimeoutException:
-            # If timeout happens at outer level, return default good result
+            audio, sr = self.preprocessor.load_audio_file(file_path)
+            print(f"[PREDICT] Audio loaded: shape={audio.shape}")
+            
+            audio_clean = self.preprocessor.remove_silence(audio)
+            print(f"[PREDICT] After silence removal: shape={audio_clean.shape}")
+            
+            features = self.feature_extractor.extract_features(audio_clean)
+            print(f"[PREDICT] Features extracted: {len(features)} feature keys")
+            
+            features_flat = self.feature_extractor.flatten_features(features)
+            print(f"[PREDICT] Features flattened: {len(features_flat)} total features")
+            
+            # Create feature array in the EXACT order as CSV columns
+            # Expected order: mfcc_mean_0-12, mfcc_std_0-12, spectral_centroid_mean, 
+            # spectral_centroid_std, spectral_rolloff_mean, spectral_rolloff_std, 
+            # zcr_mean, zcr_std, rms_mean, rms_std, chroma_mean, chroma_std, tempo_0
+            feature_order = []
+            for i in range(13):
+                feature_order.append(f"mfcc_mean_{i}")
+            for i in range(13):
+                feature_order.append(f"mfcc_std_{i}")
+            feature_order.extend([
+                "spectral_centroid_mean", "spectral_centroid_std",
+                "spectral_rolloff_mean", "spectral_rolloff_std",
+                "zcr_mean", "zcr_std",
+                "rms_mean", "rms_std",
+                "chroma_mean", "chroma_std",
+                "tempo_0"
+            ])
+            
+            feature_values = []
+            for fname in feature_order:
+                if fname in features_flat:
+                    feature_values.append(features_flat[fname])
+                else:
+                    print(f"[PREDICT] WARNING: Missing feature {fname}")
+                    feature_values.append(0.0)  # Default to 0 if missing
+            
+            feature_array = np.array([feature_values])
+            print(f"[PREDICT] Feature array shape: {feature_array.shape} (expected: (1, 37))")
+            
+            if feature_array.shape[1] != 37:
+                raise ValueError(f"Feature dimension mismatch: expected 37, got {feature_array.shape[1]}")
+            
+            features_scaled = self.scaler.transform(feature_array)
+            print(f"[PREDICT] Scaled features shape: {features_scaled.shape}")
+            
+            prediction_prob = self.model.predict(features_scaled, verbose=0)[0][0]
+            print(f"[PREDICT] Prediction probability: {prediction_prob}")
+            
+            prediction_class = int(prediction_prob > 0.5)
+            predicted_label = self.label_encoder.inverse_transform([prediction_class])[0]
+            print(f"[PREDICT] Predicted label: {predicted_label}")
+            
             return {
-                'label': 'good',
-                'confidence': 0.9999993443489075,
-                'probability_good': 0.9999993443489075,
-                'probability_bad': 6.46700527795474e-7
+                'label': predicted_label,
+                'confidence': float(prediction_prob if prediction_class == 1 else 1 - prediction_prob),
+                'probability_good': float(prediction_prob),
+                'probability_bad': float(1 - prediction_prob)
             }
         except Exception as e:
             print(f"[PREDICT] ERROR: {str(e)}")
