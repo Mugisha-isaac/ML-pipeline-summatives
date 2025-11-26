@@ -22,6 +22,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application code
 COPY . .
 
+# Copy model files (these are critical for the app to work)
+COPY models/ /app/models/
+COPY data/ /app/data/
+
 # Create necessary directories
 RUN mkdir -p /app/models /app/data /app/data/train /app/data/test /app/logs
 

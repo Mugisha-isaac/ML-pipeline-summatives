@@ -9,7 +9,6 @@ __pycache__
 venv/
 env/
 notebooks/
-data/
 tests/
 .pytest_cache
 *.log
