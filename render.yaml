@@ -1,0 +1,53 @@
+services:
+  # Backend API Service
+  - type: web
+    name: audio-talent-api
+    env: docker
+    region: oregon
+    plan: free
+    
+    # Build configuration
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    
+    # Environment variables
+    envVars:
+      - key: PYTHONUNBUFFERED
+        value: "1"
+      - key: PYTHONDONTWRITEBYTECODE
+        value: "1"
+      - key: DISABLE_LOAD_TESTING
+        value: "true"
+      - key: TF_CPP_MIN_LOG_LEVEL
+        value: "2"
+      - key: WORKERS
+        value: "4"
+    
+    # Port configuration
+    port: 8000
+    
+    # Health check
+    healthCheckPath: /health
+    healthCheckInterval: 30
+    healthCheckTimeout: 10
+    
+    # Deployment configuration
+    autoDeploy: true
+    maxShutdownDelay: 30
+    
+    # Cron job to keep the service alive (optional, for free tier)
+    crons:
+      - id: keep-alive
+        schedule: "0 */4 * * *"  # Every 4 hours
+        command: "curl https://audio-talent-api.onrender.com/health"
+
+  # Frontend Service (if needed)
+  - type: web
+    name: audio-talent-ui
+    env: static
+    staticSiteDir: frontend/out
+    buildCommand: "cd frontend && npm install && npm run build"
+    routes:
+      - path: "/*"
+        destination: /index.html
+    autoDeploy: true
