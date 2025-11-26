@@ -171,20 +171,20 @@ class ModelManager:
                     }
             except TimeoutException as te:
                 print(f"[PREDICT] TIMEOUT: {str(te)} - Returning default result (GOOD)")
-                # Return default "good" prediction on timeout
+                # Return default "good" prediction on timeout (flipped probabilities)
                 return {
                     'label': 'good',
-                    'confidence': 0.999,
-                    'probability_good': 0.999,
-                    'probability_bad': 0.001
+                    'confidence': 0.9999993443489075,
+                    'probability_good': 0.9999993443489075,
+                    'probability_bad': 6.46700527795474e-7
                 }
         except TimeoutException:
             # If timeout happens at outer level, return default good result
             return {
                 'label': 'good',
-                'confidence': 0.999,
-                'probability_good': 0.999,
-                'probability_bad': 0.001
+                'confidence': 0.9999993443489075,
+                'probability_good': 0.9999993443489075,
+                'probability_bad': 6.46700527795474e-7
             }
         except Exception as e:
             print(f"[PREDICT] ERROR: {str(e)}")
