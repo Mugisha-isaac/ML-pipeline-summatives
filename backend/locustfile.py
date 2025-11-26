@@ -263,12 +263,14 @@ def on_test_stop(environment, **kwargs):
 
 
 @events.request.add_listener
-def on_request(request_type, name, response_time, response_length, exception, **kwargs):
-    """Monitor individual requests (optional - can be noisy)"""
+def on_request(request_type, name, response_time, response_length, exception, environment, **kwargs):
+    """Monitor individual requests"""
     if exception:
         print(f"  ✗ {name}: {exception}")
     else:
         print(f"  ✓ {name}: {response_time:.0f}ms")
-    print(f"Total failures: {environment.stats.total.num_failures}")
-    print(f"Average response time: {environment.stats.total.avg_response_time:.2f}ms")
-    print("="*60)
+    # Only print stats every 10 requests to reduce noise
+    if environment.stats.total.num_requests % 10 == 0:
+        print(f"Total failures: {environment.stats.total.num_failures}")
+        print(f"Average response time: {environment.stats.total.avg_response_time:.2f}ms")
+        print("="*60)
