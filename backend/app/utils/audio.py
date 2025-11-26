@@ -21,10 +21,15 @@ class AudioPreprocessor:
 
     def load_audio_file(self, file_path: str) -> Tuple[np.ndarray, int]:
         try:
+            print(f"[AUDIO] Loading audio from: {file_path}")
             audio, sr = librosa.load(file_path, sr=self.sr)
+            print(f"[AUDIO] Audio loaded successfully: shape={audio.shape}, sr={sr}")
             return audio, sr
         except Exception as e:
-            raise ValueError(f"Error loading audio file: {e}")
+            error_msg = str(e)
+            print(f"[AUDIO] Error loading audio: {error_msg}")
+            # Re-raise with more context
+            raise ValueError(f"Error loading audio file: {error_msg}")
 
 class AudioAugmenter:
     def __init__(self, sr: int = 22050):

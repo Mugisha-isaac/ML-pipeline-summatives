@@ -4,9 +4,15 @@ Application configuration settings
 import os
 from pathlib import Path
 
-# Project structure
-BASE_DIR = Path(__file__).resolve().parent.parent.parent
-APP_DIR = Path(__file__).resolve().parent.parent
+# Project structure - handle both local and Docker environments
+try:
+    # Normal case: __file__ is available and resolvable
+    BASE_DIR = Path(__file__).resolve().parent.parent.parent
+except (NameError, AttributeError, RuntimeError):
+    # Fallback: use current working directory
+    BASE_DIR = Path("/app") if os.path.exists("/app") else Path.cwd()
+
+APP_DIR = BASE_DIR / "app" if (BASE_DIR / "app").exists() else BASE_DIR
 
 # Data directories
 DATA_DIR = BASE_DIR / "data"
@@ -20,6 +26,11 @@ MODELS_DIR = BASE_DIR / "models"
 # Create necessary directories
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 os.makedirs(MODELS_DIR, exist_ok=True)
+
+print(f"[SETTINGS] BASE_DIR: {BASE_DIR}")
+print(f"[SETTINGS] APP_DIR: {APP_DIR}")
+print(f"[SETTINGS] MODELS_DIR: {MODELS_DIR}")
+print(f"[SETTINGS] DATA_DIR: {DATA_DIR}")
 
 # Model file paths
 MODEL_PATH = MODELS_DIR / "talent_classifier_model.h5"
