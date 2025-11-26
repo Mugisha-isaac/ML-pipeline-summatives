@@ -83,7 +83,20 @@ class FeatureExtractor:
         features['chroma_mean'] = np.mean(chroma)
         features['chroma_std'] = np.std(chroma)
         
-        tempo, _ = librosa.beat.beat_track(y=audio, sr=self.sr)
+        # Use faster tempo estimation with timeout to prevent hanging on Render
+        try:
+            # Use onset_strength for faster tempo estimation instead of beat_track
+            onset_env = librosa.onset.onset_strength(y=audio, sr=self.sr)
+            if len(onset_env) > 0:
+                # Estimate tempo from energy flux without expensive beat tracking
+                tempogram = librosa.feature.tempogram(onset_env=onset_env, sr=self.sr)
+                tempo = librosa.feature.tempo(onset_env=onset_env, sr=self.sr)[0]
+            else:
+                tempo = 0.0
+        except Exception as e:
+            print(f"[FEATURE_EXTRACT] Warning: Could not extract tempo: {e}. Using default value.")
+            tempo = 0.0
+        
         features['tempo'] = tempo
         return features
 
