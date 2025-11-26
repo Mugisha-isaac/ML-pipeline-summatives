@@ -61,7 +61,13 @@ class ModelManager:
             features = self.feature_extractor.extract_features(audio_clean)
             features_flat = self.feature_extractor.flatten_features(features)
             feature_array = np.array([list(features_flat.values())])
+            
+            # Log the shapes for debugging
+            print(f"Feature array shape before scaling: {feature_array.shape}")
+            
             features_scaled = self.scaler.transform(feature_array)
+            print(f"Features scaled shape: {features_scaled.shape}")
+            
             prediction_prob = self.model.predict(features_scaled, verbose=0)[0][0]
             prediction_class = int(prediction_prob > 0.5)
             predicted_label = self.label_encoder.inverse_transform([prediction_class])[0]
@@ -72,6 +78,9 @@ class ModelManager:
                 'probability_bad': float(1 - prediction_prob)
             }
         except Exception as e:
+            print(f"Detailed prediction error: {e}")
+            import traceback
+            traceback.print_exc()
             raise ValueError(f"Error during prediction: {e}")
 
     def is_model_ready(self) -> bool:
