@@ -57,20 +57,59 @@ class ModelManager:
             raise RuntimeError("Model not loaded")
         try:
             audio, sr = self.preprocessor.load_audio_file(file_path)
-            audio_clean = self.preprocessor.remove_silence(audio)
-            features = self.feature_extractor.extract_features(audio_clean)
-            features_flat = self.feature_extractor.flatten_features(features)
-            feature_array = np.array([list(features_flat.values())])
+            print(f"[PREDICT] Audio loaded: shape={audio.shape}")
             
-            # Log the shapes for debugging
-            print(f"Feature array shape before scaling: {feature_array.shape}")
+            audio_clean = self.preprocessor.remove_silence(audio)
+            print(f"[PREDICT] After silence removal: shape={audio_clean.shape}")
+            
+            features = self.feature_extractor.extract_features(audio_clean)
+            print(f"[PREDICT] Features extracted: {len(features)} feature keys")
+            
+            features_flat = self.feature_extractor.flatten_features(features)
+            print(f"[PREDICT] Features flattened: {len(features_flat)} total features")
+            
+            # Create feature array in the EXACT order as CSV columns
+            # Expected order: mfcc_mean_0-12, mfcc_std_0-12, spectral_centroid_mean, 
+            # spectral_centroid_std, spectral_rolloff_mean, spectral_rolloff_std, 
+            # zcr_mean, zcr_std, rms_mean, rms_std, chroma_mean, chroma_std, tempo_0
+            feature_order = []
+            for i in range(13):
+                feature_order.append(f"mfcc_mean_{i}")
+            for i in range(13):
+                feature_order.append(f"mfcc_std_{i}")
+            feature_order.extend([
+                "spectral_centroid_mean", "spectral_centroid_std",
+                "spectral_rolloff_mean", "spectral_rolloff_std",
+                "zcr_mean", "zcr_std",
+                "rms_mean", "rms_std",
+                "chroma_mean", "chroma_std",
+                "tempo_0"
+            ])
+            
+            feature_values = []
+            for fname in feature_order:
+                if fname in features_flat:
+                    feature_values.append(features_flat[fname])
+                else:
+                    print(f"[PREDICT] WARNING: Missing feature {fname}")
+                    feature_values.append(0.0)  # Default to 0 if missing
+            
+            feature_array = np.array([feature_values])
+            print(f"[PREDICT] Feature array shape: {feature_array.shape} (expected: (1, 37))")
+            
+            if feature_array.shape[1] != 37:
+                raise ValueError(f"Feature dimension mismatch: expected 37, got {feature_array.shape[1]}")
             
             features_scaled = self.scaler.transform(feature_array)
-            print(f"Features scaled shape: {features_scaled.shape}")
+            print(f"[PREDICT] Scaled features shape: {features_scaled.shape}")
             
             prediction_prob = self.model.predict(features_scaled, verbose=0)[0][0]
+            print(f"[PREDICT] Prediction probability: {prediction_prob}")
+            
             prediction_class = int(prediction_prob > 0.5)
             predicted_label = self.label_encoder.inverse_transform([prediction_class])[0]
+            print(f"[PREDICT] Predicted label: {predicted_label}")
+            
             return {
                 'label': predicted_label,
                 'confidence': float(prediction_prob if prediction_class == 1 else 1 - prediction_prob),
@@ -78,7 +117,7 @@ class ModelManager:
                 'probability_bad': float(1 - prediction_prob)
             }
         except Exception as e:
-            print(f"Detailed prediction error: {e}")
+            print(f"[PREDICT] ERROR: {str(e)}")
             import traceback
             traceback.print_exc()
             raise ValueError(f"Error during prediction: {e}")

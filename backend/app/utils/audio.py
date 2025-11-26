@@ -94,5 +94,6 @@ class FeatureExtractor:
                 for i, v in enumerate(value):
                     flat_features[f"{key}_{i}"] = float(v)
             else:
-                flat_features[key] = float(value)
+                # For scalar values like tempo
+                flat_features[f"{key}_0"] = float(value)
         return flat_features
