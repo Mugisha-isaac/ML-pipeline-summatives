@@ -44,12 +44,10 @@ venv.bak/
 *.ipynb_checkpoints
 
 # Data files (large files)
-*.wav
-*.mp3
-*.flac
-# data/train/ and data/test/ are needed for deployment - kept in repo
-# data/train/ 
-# data/test/
+# Allow audio files in data/train/ and data/test/ directories for training and testing
+# *.wav, *.mp3, *.flac are NOT excluded - they're needed for the ML pipeline
+# Exclude uploads directory only (temporary files)
+data/uploads/
 
 # Model files (large files) - KEPT IN REPO FOR DEPLOYMENT
 # *.h5
