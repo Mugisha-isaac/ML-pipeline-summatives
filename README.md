@@ -153,6 +153,10 @@ cd backend
 locust -f locustfile.py --host https://ml-pipeline-summatives.onrender.com
 ```
 
+**Load Test Results:** 5.5 RPS with 100 concurrent users, 50% failure rate during stress testing
+
+![Locust Load Testing Dashboard](./docs/locust-dashboard.png)
+
 ## Docker Deployment
 
 ```bash
